@@ -296,6 +296,17 @@ class TestSearchCommand:
         spans = [(span.start, span.end, str(span.style)) for span in highlighted.spans]
         assert spans == [(0, 6, "bold yellow"), (13, 19, "bold yellow")]
 
+    def test_highlight_keyword_handles_empty_keyword(self) -> None:
+        highlighted = highlight_keyword("Deploy to production", "")
+        assert highlighted.plain == "Deploy to production"
+        assert highlighted.spans == []
+
+    def test_highlight_keyword_uses_original_unicode_indices(self) -> None:
+        highlighted = highlight_keyword("İstanbul", "i")
+        assert highlighted.plain == "İstanbul"
+        spans = [(span.start, span.end, str(span.style)) for span in highlighted.spans]
+        assert spans == [(0, 1, "bold yellow")]
+
 
 class TestCompleteCommand:
     def test_complete_marks_done(self, runner: CliRunner, sample_tasks: list[dict]) -> None:

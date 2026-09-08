@@ -18,6 +18,7 @@ Usage:
 """
 
 import json
+import re
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -30,7 +31,7 @@ from rich.text import Text
 TASKS_FILE = Path(__file__).resolve().with_name("tasks.json")
 
 PRIORITIES = ("low", "medium", "high")
-SEARCH_PRIORITY_ORDER = ("high", "medium", "low")
+SEARCH_PRIORITY_ORDER = tuple(reversed(PRIORITIES))
 PRIORITY_COLOURS = {"low": "cyan", "medium": "yellow", "high": "red"}
 
 console = Console()
@@ -154,24 +155,18 @@ def highlight_keyword(text: str, keyword: str) -> Text:
 
     Args:
         text: The source text to render.
-        keyword: The already-validated keyword to highlight.
+        keyword: The keyword to highlight.
 
     Returns:
         A Rich Text object preserving the original text and styling each match
         as bold yellow.
     """
     highlighted = Text(text)
-    lower_text = text.lower()
-    lower_keyword = keyword.lower()
-    start = 0
+    if not keyword:
+        return highlighted
 
-    while True:
-        match_start = lower_text.find(lower_keyword, start)
-        if match_start == -1:
-            break
-        match_end = match_start + len(keyword)
-        highlighted.stylize("bold yellow", match_start, match_end)
-        start = match_end
+    for match in re.finditer(re.escape(keyword), text, re.IGNORECASE):
+        highlighted.stylize("bold yellow", match.start(), match.end())
 
     return highlighted
 
