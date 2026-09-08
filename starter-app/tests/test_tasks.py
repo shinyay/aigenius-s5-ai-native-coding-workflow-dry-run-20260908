@@ -7,7 +7,21 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from app import add, cli, complete, delete, edit, is_overdue, list_tasks, load_tasks, save_tasks, stats
+from app import (
+    add,
+    cli,
+    complete,
+    delete,
+    edit,
+    highlight_keyword,
+    is_overdue,
+    list_tasks,
+    load_tasks,
+    save_tasks,
+    search,
+    search_tasks,
+    stats,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +190,111 @@ class TestListCommand:
         result = runner.invoke(cli, ["list", "--tag", "nonexistent"])
         assert result.exit_code == 0
         assert "No tasks match" in result.output
+
+
+class TestSearchCommand:
+    def test_help_shows_keyword_and_example(self, runner: CliRunner) -> None:
+        result = runner.invoke(cli, ["search", "--help"])
+        assert result.exit_code == 0
+        assert "KEYWORD" in result.output
+        assert 'python app.py search "deploy"' in result.output
+
+    def test_search_matches_name_case_insensitively(
+        self, runner: CliRunner, sample_tasks: list[dict]
+    ) -> None:
+        result = runner.invoke(cli, ["search", "deploy"])
+        assert result.exit_code == 0
+        assert "Deploy to production" in result.output
+        assert "Run the release pipeline" in result.output
+
+    def test_search_matches_description_only(
+        self, runner: CliRunner, sample_tasks: list[dict]
+    ) -> None:
+        result = runner.invoke(cli, ["search", "release"])
+        assert result.exit_code == 0
+        assert "Deploy to production" in result.output
+        assert "Buy groceries" not in result.output
+
+    def test_search_includes_done_and_pending_statuses(
+        self, runner: CliRunner, sample_tasks: list[dict]
+    ) -> None:
+        result = runner.invoke(cli, ["search", "t"])
+        assert result.exit_code == 0
+        assert "Pending" in result.output
+        assert "Done" in result.output
+
+    def test_search_sorts_by_priority_then_id(self) -> None:
+        tasks = [
+            {
+                "id": 5,
+                "name": "Match",
+                "description": "",
+                "priority": "low",
+                "done": False,
+            },
+            {
+                "id": 3,
+                "name": "Match",
+                "description": "",
+                "priority": "high",
+                "done": False,
+            },
+            {
+                "id": 2,
+                "name": "Match",
+                "description": "",
+                "priority": "medium",
+                "done": False,
+            },
+            {
+                "id": 1,
+                "name": "Match",
+                "description": "",
+                "priority": "high",
+                "done": False,
+            },
+        ]
+        assert [task["id"] for task in search_tasks(tasks, "match")] == [1, 3, 2, 5]
+
+    def test_search_handles_empty_and_missing_description(self, runner: CliRunner) -> None:
+        save_tasks(
+            [
+                {
+                    "id": 1,
+                    "name": "Alpha match",
+                    "description": "",
+                    "priority": "low",
+                    "done": False,
+                },
+                {"id": 2, "name": "Beta match", "priority": "medium", "done": True},
+            ]
+        )
+        result = runner.invoke(cli, ["search", "match"])
+        assert result.exit_code == 0
+        assert "Alpha match" in result.output
+        assert "Beta match" in result.output
+        assert "—" in result.output
+
+    def test_search_no_matches_exits_successfully(
+        self, runner: CliRunner, sample_tasks: list[dict]
+    ) -> None:
+        result = runner.invoke(cli, ["search", "nonexistent"])
+        assert result.exit_code == 0
+        assert "No tasks match your search." in result.output
+
+    def test_search_blank_keyword_fails_without_listing_tasks(
+        self, runner: CliRunner, sample_tasks: list[dict]
+    ) -> None:
+        result = runner.invoke(cli, ["search", "   "])
+        assert result.exit_code != 0
+        assert "Search keyword cannot be empty" in result.output
+        assert "Deploy to production" not in result.output
+
+    def test_highlight_keyword_preserves_text_and_styles_matches(self) -> None:
+        highlighted = highlight_keyword("Deploy and redeploy", "deploy")
+        assert highlighted.plain == "Deploy and redeploy"
+        spans = [(span.start, span.end, str(span.style)) for span in highlighted.spans]
+        assert spans == [(0, 6, "bold yellow"), (13, 19, "bold yellow")]
 
 
 class TestCompleteCommand:

@@ -66,6 +66,7 @@ You are the **tech lead** in this workflow. Copilot handles the *how*. You defin
    python app.py add "Deploy the API" --priority high --due 2025-12-31 --tag work
    python app.py add "Buy coffee" --priority low --tag personal
    python app.py list
+   python app.py search "deploy"
    python app.py stats
    ```
 
